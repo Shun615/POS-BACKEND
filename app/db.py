@@ -6,7 +6,7 @@ load_dotenv()
 
 def get_connection():
     # .env から DB名が正しく読み込まれているか確認するためのデバッグ出力
-    print("✅ DB名：", os.getenv("MYSQL_DB"))  # ← これが追加された行
+    print("✅ DB名：", os.getenv("MYSQL_DB"))
 
     return mysql.connector.connect(
         host=os.getenv("MYSQL_HOST"),
@@ -14,5 +14,6 @@ def get_connection():
         user=os.getenv("MYSQL_USER"),
         password=os.getenv("MYSQL_PASSWORD"),
         database=os.getenv("MYSQL_DB"),
-        ssl_ca=os.getenv("MYSQL_SSL_CA")
+        ssl_ca=os.getenv("MYSQL_SSL_CA"),
+        charset='utf8mb4'  # ← ここを追加！
     )

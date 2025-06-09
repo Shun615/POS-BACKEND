@@ -1,9 +1,19 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware  # CORSミドルウェア追加
 from app.db import get_connection
 from pydantic import BaseModel
 from typing import List
 
 app = FastAPI()
+
+# CORSミドルウェアの設定（Next.jsからのアクセスを許可）
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # フロントがlocalhostで動作している場合
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 def read_root():
@@ -26,16 +36,13 @@ def get_product_by_code(code: str):
     else:
         return {"message": "商品が見つかりません"}
 
-
-# ======================
-# /purchase POST API 追加部分
-# ======================
-
+# 購入アイテムの構造定義
 class PurchaseItem(BaseModel):
     code: str
     name: str
     price: int
 
+# リクエストの構造定義
 class PurchaseRequest(BaseModel):
     emp_cd: str
     store_cd: str
@@ -54,7 +61,7 @@ def make_purchase(purchase: PurchaseRequest):
     )
     trd_id = cursor.lastrowid
 
-    # 2. 明細テーブルに1商品ずつ登録
+    # 2. 取引明細に追加
     total_amt = 0
     for i, item in enumerate(purchase.items):
         cursor.execute(
@@ -64,7 +71,7 @@ def make_purchase(purchase: PurchaseRequest):
         )
         total_amt += item.price
 
-    # 3. 合計金額を取引テーブルに反映
+    # 3. 合計金額を更新
     cursor.execute(
         "UPDATE 取引 SET TOTAL_AMT = %s WHERE TRD_ID = %s",
         (total_amt, trd_id)
