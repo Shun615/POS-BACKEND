@@ -1,15 +1,18 @@
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware  # CORSミドルウェア追加
+from fastapi.middleware.cors import CORSMiddleware
 from app.db import get_connection
 from pydantic import BaseModel
 from typing import List
 
 app = FastAPI()
 
-# CORSミドルウェアの設定（Next.jsからのアクセスを許可）
+# ✅ CORSミドルウェア設定（本番＋ローカル対応）
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # フロントがlocalhostで動作している場合
+    allow_origins=[
+        "http://localhost:3000",  # 開発環境
+        "https://app-step4-58.azurewebsites.net"  # ← 本番フロントエンドURLに合わせて変更
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -18,6 +21,7 @@ app.add_middleware(
 @app.get("/")
 def read_root():
     return {"message": "POS-API is running!"}
+
 
 @app.get("/product/{code}")
 def get_product_by_code(code: str):
@@ -36,32 +40,33 @@ def get_product_by_code(code: str):
     else:
         return {"message": "商品が見つかりません"}
 
-# 購入アイテムの構造定義
+
+# 購入API関連モデル定義
 class PurchaseItem(BaseModel):
     code: str
     name: str
     price: int
 
-# リクエストの構造定義
 class PurchaseRequest(BaseModel):
     emp_cd: str
     store_cd: str
     pos_no: str
     items: List[PurchaseItem]
 
+
 @app.post("/purchase")
 def make_purchase(purchase: PurchaseRequest):
     conn = get_connection()
     cursor = conn.cursor()
 
-    # 1. 取引テーブルに追加（合計金額は0で初期登録）
+    # 1. 取引テーブルに登録（初期合計金額は0）
     cursor.execute(
         "INSERT INTO 取引 (EMP_CD, STORE_CD, POS_NO, TOTAL_AMT) VALUES (%s, %s, %s, %s)",
         (purchase.emp_cd, purchase.store_cd, purchase.pos_no, 0)
     )
     trd_id = cursor.lastrowid
 
-    # 2. 取引明細に追加
+    # 2. 取引明細を登録
     total_amt = 0
     for i, item in enumerate(purchase.items):
         cursor.execute(
